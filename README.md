@@ -5,7 +5,8 @@
 K-means / Lightgbm
 
 ## 그라운드 룰 , 컨벤션
-모두 .venv 만들어서 작업 하는게 좋을것 같습니다.
+모두 .venv 만들어서 작업 하는게 좋을것 같습니다. <br>
+.venv 환경에서 작업 해야 합니다
 
 구현 시작하기 전에, <br>
 `pip install -r requirements.txt` 실행하고 시작해야 필요한 패키지 다운됩니다. <br>
