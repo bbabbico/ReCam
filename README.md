@@ -14,7 +14,7 @@ K-means / Lightgbm
 구현 끝나고, 커밋 전에 `pip freeze > requirements.txt` 입력해서 필요한 패키지 업데이트 해주십쇼
 ## 프로젝트 구조
 
-기상청 API는 backend/services/weather.py 에 작성 해주시면 됩니다.
+기상청 API는 backend/services/weather.py 에 작성 해주시면 됩니다. 거기에 요구사항 명세 있습니다
 
 ## 기본 계획
 🛠️ Phase 1. 데이터 전처리 (Data Engineering)
