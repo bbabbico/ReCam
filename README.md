@@ -8,7 +8,7 @@ K-means / Lightgbm
 모두 .venv 만들어서 작업 하는게 좋을것 같습니다. <br>
 .venv 환경에서 작업 해야 합니다 <br>
 그리고 가능하면 학교 계정으로 파이참pro 쓰십쇼 인생이 편해집니다 <br>
-브랜치 아무렇게나 만들고 main에 pr 올리면 됩니다
+브랜치 아무렇게나 만들고 main에 pr 올리면 됩니다 main에 바로 push 하면 집으로 찾아가겠습니다<br>
 
 구현 시작하기 전에, <br>
 `pip install -r requirements.txt` 실행하고 시작해야 필요한 패키지 다운됩니다. <br>
