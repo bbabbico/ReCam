@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from backend.app.api.domain.model import *
+from backend.app.api.domain.dto import *
 
 app = FastAPI()
 @app.get("/")
