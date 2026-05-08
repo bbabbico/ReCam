@@ -15,7 +15,47 @@ K-means / Lightgbm
 구현 끝나고, 커밋 전에 `pip freeze > requirements.txt` 입력해서 필요한 패키지 업데이트 해주십쇼
 ## 프로젝트 구조
 
-기상청 API는 backend/services/weather.py 에 작성 해주시면 됩니다. 거기에 요구사항 명세 있습니다
+기상청 API는 backend/services/weather.py 에 작성 해주시면 됩니다. 거기에 요구사항 명세 있습니다 <br>
+각자 맡은 담당 영역은 밑에 디렉터리 구조 보면됩니다
+```
+PeakGuard-AI/
+├── frontend/                 # 프론트
+│   ├── index.html            # 메인 웹 페이지
+│   ├── css/                  # 스타일시트 파일 저장
+│   │   └── style.css
+│   ├── js/                   # 프론트엔드 로직 및 백엔드 API 호출 스크립트
+│   │   └── api.js
+│   └── assets/               # 이미지, 폰트 등 정적 리소스
+│
+├── backend/                  # FastAPI 백엔드 영역
+│   ├── aimodel/              # [원세찬 , 서현석 담당]모델 영역 - 모델 개발할때 여기에 개발하면됨
+│   ├── app/                  # 애플리케이션 코어 영역
+│   │   ├── __init__.py
+│   │   ├── main.py           # FastAPI 애플리케이션 진입점
+│   │   ├── api/              # API
+│   │   │   ├── __init__.py
+│   │   │   ├── prediction.py # 전력 사용량 예측 관련 API 엔드포인트
+│   │   │   └── weather.py    # 기상 데이터 관련 API 엔드포인트
+│   │   ├── core/             # 공통 설정
+│   │   │   ├── __init__.py
+│   │   │   └── config.py     # 환경 변수
+│   │   ├── models/           # 데이터 모델 
+│   │   │   ├── __init__.py
+│   │   │   └── schemas.py    # Request/Response 데이터 검증용 구조체
+│   │   ├── services/         # 비즈니스 로직
+│   │   │   ├── __init__.py
+│   │   │   ├── weather.py    # [조승휘 담당] 기상 데이터 API 연동 및 가공 로직
+│   │   │   ├── clustering.py # 모델을 로드하여 건물 군집을 매핑하는 로직
+│   │   │   └── prediction.py # 모델을 로드하여 전력을 예측하는 로직
+│   │   └── utils/            # 유틸리티 모듈
+│   │       ├── __init__.py
+│   │       └── data_prep.py  # 기상 데이터와 모델 입력 데이터를 맞추기 위한 전처리
+│   │
+│   ├── requirements.txt      # 백엔드/ML 의존성 패키지 목록
+│   └── Dockerfile            # 서버 배포용 Docker 설정 (아직 설정안됨)
+│
+└── README.md                 # 프로젝트 설명서
+```
 
 ## 기본 계획
 🛠️ Phase 1. 데이터 전처리 (Data Engineering)
