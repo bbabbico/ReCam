@@ -92,6 +92,10 @@ df['반경내과속카메라'] = cam_overspeed
 df['반경내신호카메라'] = cam_signal
 df['카메라유무'] = (df['반경내카메라수'] > 0).astype(int)
 
+# UTM-K → 위경도 변환
+transformer_inv = Transformer.from_crs("EPSG:5178", "EPSG:4326", always_xy=True)
+df['경도'], df['위도'] = transformer_inv.transform(df['중심점utmkx좌표'].values, df['중심점utmky좌표'].values)
+
 # 사고유형 파싱
 def parse_types(type_str):
     if pd.isna(type_str):
@@ -635,7 +639,7 @@ print("\n[결과 저장]")
 df_out = df[['연도코드', '시도명', '시군구코드', '사고위험지역명', '사고위험지역id',
              '총사고건수', '총사망자수', '총중상자수', '총경상자수',
              '사고분석유형명', '반경내카메라수', '반경내과속카메라', '반경내신호카메라',
-             '카메라효과비율', 'cluster', '군집라벨']].copy()
+             '카메라효과비율', 'cluster', '군집라벨', '위도', '경도']].copy()
 df_out.to_csv(os.path.join(OUTPUT_DIR, 'cluster_result_v2.csv'),
               index=False, encoding='utf-8-sig')
 print(f"  → cluster_result_v2.csv ({len(df_out):,}건)")
