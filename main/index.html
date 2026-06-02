@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>교통사고 위험지역 카메라 재배치 시각화 지도</title>
+    <meta name="description" content="교통사고 위험지역 내 무인교통단속카메라 재배치 우선순위 시각화 지도">
+
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* ── Reset & Base ────────────────────────────── */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-dark: #0f1117;
+            --bg-panel: #1a1d27;
+            --bg-card: #232736;
+            --bg-card-hover: #2c3042;
+            --border: #2e3348;
+            --text-primary: #e8eaed;
+            --text-secondary: #9aa0b4;
+            --text-muted: #6b7280;
+            --accent-red: #ff4757;
+            --accent-orange: #ff9f43;
+            --accent-yellow: #feca57;
+            --accent-blue: #3498db;
+            --accent-green: #2ed573;
+            --accent-purple: #a55eea;
+            --accent-dark: #2c3e50;
+            --shadow-lg: 0 20px 60px rgba(0,0,0,0.5);
+            --shadow-md: 0 8px 30px rgba(0,0,0,0.3);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── Layout ──────────────────────────────────── */
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* ── Sidebar ─────────────────────────────────── */
+        .sidebar {
+            width: 380px;
+            min-width: 380px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ── Header ──────────────────────────────────── */
+        .header {
+            padding: 24px 24px 16px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.08), rgba(155, 89, 182, 0.08));
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.3px;
+            background: linear-gradient(135deg, #3498db, #a55eea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 4px;
+        }
+
+        .header-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        /* ── Stats Overview ──────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        }
+
+        .stat-card.priority-1::before { background: var(--accent-red); }
+        .stat-card.priority-2::before { background: var(--accent-orange); }
+        .stat-card.priority-3::before { background: var(--accent-yellow); }
+        .stat-card.priority-surplus::before { background: var(--accent-blue); }
+
+        .stat-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .stat-card.active {
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 0 20px rgba(52,152,219,0.15);
+        }
+
+        .stat-card.priority-1.active { border-color: var(--accent-red); box-shadow: 0 0 20px rgba(255,71,87,0.2); }
+        .stat-card.priority-2.active { border-color: var(--accent-orange); box-shadow: 0 0 20px rgba(255,159,67,0.2); }
+        .stat-card.priority-3.active { border-color: var(--accent-yellow); box-shadow: 0 0 20px rgba(254,202,87,0.2); }
+        .stat-card.priority-surplus.active { border-color: var(--accent-blue); box-shadow: 0 0 20px rgba(52,152,219,0.2); }
+
+        .stat-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .priority-1 .stat-label { color: var(--accent-red); }
+        .priority-2 .stat-label { color: var(--accent-orange); }
+        .priority-3 .stat-label { color: var(--accent-yellow); }
+        .priority-surplus .stat-label { color: var(--accent-blue); }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .stat-detail {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* ── Filter Section ──────────────────────────── */
+        .filter-section {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .filter-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .filter-select {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            transition: var(--transition);
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239aa0b4' d='M6 8.5L1 3.5h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+
+        .filter-select:hover { border-color: rgba(255,255,255,0.15); }
+        .filter-select:focus { outline: none; border-color: var(--accent-blue); }
+
+        /* ── Legend ───────────────────────────────────── */
+        .legend-section {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 0 8px rgba(255,255,255,0.15);
+        }
+
+        .legend-dot.red { background: var(--accent-red); box-shadow: 0 0 8px rgba(255,71,87,0.4); }
+        .legend-dot.orange { background: var(--accent-orange); box-shadow: 0 0 8px rgba(255,159,67,0.4); }
+        .legend-dot.yellow { background: var(--accent-yellow); box-shadow: 0 0 8px rgba(254,202,87,0.3); }
+        .legend-dot.blue { background: var(--accent-blue); box-shadow: 0 0 8px rgba(52,152,219,0.4); }
+
+        .legend-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .legend-text strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* ── Info Panel (Selected Marker) ────────────── */
+        .info-panel {
+            padding: 16px 24px;
+            flex: 1;
+        }
+
+        .info-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .info-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .info-empty-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .marker-detail {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .marker-detail-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .marker-detail-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-1 { background: rgba(255,71,87,0.15); color: var(--accent-red); }
+        .badge-2 { background: rgba(255,159,67,0.15); color: var(--accent-orange); }
+        .badge-3 { background: rgba(254,202,87,0.15); color: var(--accent-yellow); }
+        .badge-surplus { background: rgba(52,152,219,0.15); color: var(--accent-blue); }
+
+        .marker-detail-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.4;
+            flex: 1;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .detail-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            padding: 10px 12px;
+        }
+
+        .detail-item-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        .detail-item-value {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .detail-item-value.danger { color: var(--accent-red); }
+        .detail-item-value.warning { color: var(--accent-orange); }
+        .detail-item-value.info { color: var(--accent-blue); }
+        .detail-item-value.neutral { color: var(--text-primary); }
+
+        .detail-type {
+            margin-top: 10px;
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+        }
+
+        .detail-type-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .detail-type-value {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* ── Map Container ───────────────────────────── */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ── Loading Overlay ─────────────────────────── */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15,17,23,0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .loading-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* ── Map Controls (top-right) ────────────────── */
+        .map-controls {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .map-btn {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            box-shadow: var(--shadow-md);
+        }
+
+        .map-btn:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        /* ── Map Marker Count Badge ──────────────────── */
+        .marker-count-badge {
+            position: absolute;
+            bottom: 24px;
+            right: 16px;
+            z-index: 10;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 8px 18px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            box-shadow: var(--shadow-md);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .marker-count-badge .count-num {
+            font-weight: 700;
+            color: var(--accent-blue);
+        }
+
+        /* ── Kakao Map Custom InfoWindow ──────────────── */
+        .custom-infowindow {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            min-width: 240px;
+            max-width: 320px;
+            box-shadow: var(--shadow-lg);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-infowindow .iw-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .custom-infowindow .iw-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .custom-infowindow .iw-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+
+        .custom-infowindow .iw-stat {
+            text-align: center;
+            padding: 6px 4px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 6px;
+        }
+
+        .custom-infowindow .iw-stat-label {
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+
+        .custom-infowindow .iw-stat-value {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* ── Responsive ──────────────────────────────── */
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; min-width: unset; height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+            .app-container { flex-direction: column; }
+            .map-container { height: 60vh; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-title">🚦 교통사고 위험지역 카메라 재배치 지도</div>
+                <div class="header-subtitle">무인교통단속카메라 설치 우선순위 시각화 | 선문대학교</div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card priority-1 active" data-category="1순위" onclick="toggleCategory(this)">
+                    <div class="stat-label">🔴 1순위 타겟</div>
+                    <div class="stat-value" id="stat-p1-count">-</div>
+                    <div class="stat-detail" id="stat-p1-detail">사망위험 + 사고다발</div>
+                </div>
+                <div class="stat-card priority-2 active" data-category="2순위" onclick="toggleCategory(this)">
+                    <div class="stat-label">🟠 2순위 타겟</div>
+                    <div class="stat-value" id="stat-p2-count">-</div>
+                    <div class="stat-detail" id="stat-p2-detail">부족 상위 10%</div>
+                </div>
+                <div class="stat-card priority-3" data-category="3순위" onclick="toggleCategory(this)">
+                    <div class="stat-label">🟡 3순위</div>
+                    <div class="stat-value" id="stat-p3-count">-</div>
+                    <div class="stat-detail" id="stat-p3-detail">부족 나머지</div>
+                </div>
+                <div class="stat-card priority-surplus active" data-category="과잉" onclick="toggleCategory(this)">
+                    <div class="stat-label">🔵 과잉 설치</div>
+                    <div class="stat-value" id="stat-surplus-count">-</div>
+                    <div class="stat-detail" id="stat-surplus-detail">카메라 재배치 대상</div>
+                </div>
+            </div>
+
+            <!-- Filter -->
+            <div class="filter-section">
+                <div class="filter-label">시도 필터</div>
+                <select class="filter-select" id="sidoFilter" onchange="onFilterChange()">
+                    <option value="전체">전체 지역</option>
+                </select>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend-section">
+                <div class="filter-label">범례</div>
+                <div class="legend-item">
+                    <div class="legend-dot red"></div>
+                    <div class="legend-text"><strong>1순위</strong> — 사망위험 · 사고다발 (카메라 0대)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot orange"></div>
+                    <div class="legend-text"><strong>2순위</strong> — 부족 상위 10% (카메라 0대)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot yellow"></div>
+                    <div class="legend-text"><strong>3순위</strong> — 부족 나머지 (카메라 0대)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot blue"></div>
+                    <div class="legend-text"><strong>과잉</strong> — 카메라 과밀 설치 지점</div>
+                </div>
+            </div>
+
+            <!-- Selected Marker Info -->
+            <div class="info-panel">
+                <div class="info-title">선택된 지점 정보</div>
+                <div id="markerInfo">
+                    <div class="info-empty">
+                        <div class="info-empty-icon">📍</div>
+                        <div>지도에서 마커를 클릭하면<br>상세 정보가 표시됩니다</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Map -->
+        <div class="map-container">
+            <div id="map"></div>
+
+            <!-- Loading -->
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">지도 데이터 로딩 중...</div>
+                <div class="loading-sub">마커를 불러오고 있습니다</div>
+            </div>
+
+            <!-- Map Controls -->
+            <div class="map-controls">
+                <button class="map-btn" onclick="resetView()" title="전국 보기">🇰🇷</button>
+                <button class="map-btn" onclick="refreshMarkers()" title="새로고침">🔄</button>
+            </div>
+
+            <!-- Marker Count -->
+            <div class="marker-count-badge">
+                표시 중: <span class="count-num" id="markerCountNum">0</span>개 지점
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── Global State ─────────────────────────────────
+        let map = null;
+        let markers = [];
+        let clusterers = {};
+        let currentInfoWindow = null;
+        let activeCategories = new Set(['1순위', '2순위', '과잉']);
+        let currentSido = '전체';
+
+        // 카테고리별 색상 설정
+        const CATEGORY_CONFIG = {
+            '1순위': { color: '#ff4757', markerColor: '#ff4757', emoji: '🔴', zIndex: 4 },
+            '2순위': { color: '#ff9f43', markerColor: '#ff9f43', emoji: '🟠', zIndex: 3 },
+            '3순위': { color: '#feca57', markerColor: '#feca57', emoji: '🟡', zIndex: 2 },
+            '과잉':  { color: '#3498db', markerColor: '#3498db', emoji: '🔵', zIndex: 1 },
+        };
+
+        // ── Initialize Map ───────────────────────────────
+        function initMap() {
+            const container = document.getElementById('map');
+            const options = {
+                center: new kakao.maps.LatLng(36.5, 127.8),
+                level: 13,  // 전국 수준
+            };
+            map = new kakao.maps.Map(container, options);
+
+            // 지도 타입 컨트롤
+            const mapTypeControl = new kakao.maps.MapTypeControl();
+            map.addControl(mapTypeControl, kakao.maps.ControlPosition.TOPRIGHT);
+
+            // 줌 컨트롤
+            const zoomControl = new kakao.maps.ZoomControl();
+            map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
+
+            // 클러스터러 초기화 (카테고리별)
+            for (const [cat, cfg] of Object.entries(CATEGORY_CONFIG)) {
+                clusterers[cat] = new kakao.maps.MarkerClusterer({
+                    map: null,  // 처음에는 연결하지 않음
+                    averageCenter: true,
+                    minLevel: 6,
+                    disableClickZoom: false,
+                    calculator: [10, 30, 100],
+                    styles: [
+                        { // 10개 이하
+                            width: '40px', height: '40px',
+                            background: cfg.color,
+                            borderRadius: '50%',
+                            color: '#fff',
+                            textAlign: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '12px',
+                            lineHeight: '40px',
+                            opacity: 0.85,
+                        },
+                        { // 30개 이하
+                            width: '50px', height: '50px',
+                            background: cfg.color,
+                            borderRadius: '50%',
+                            color: '#fff',
+                            textAlign: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '13px',
+                            lineHeight: '50px',
+                            opacity: 0.85,
+                        },
+                        { // 100개 이하
+                            width: '60px', height: '60px',
+                            background: cfg.color,
+                            borderRadius: '50%',
+                            color: '#fff',
+                            textAlign: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '14px',
+                            lineHeight: '60px',
+                            opacity: 0.85,
+                        },
+                        { // 100개 초과
+                            width: '70px', height: '70px',
+                            background: cfg.color,
+                            borderRadius: '50%',
+                            color: '#fff',
+                            textAlign: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '15px',
+                            lineHeight: '70px',
+                            opacity: 0.85,
+                        },
+                    ],
+                });
+            }
+
+            // 데이터 로드
+            loadStats();
+            loadMarkers();
+        }
+
+        // ── Load Stats ───────────────────────────────────
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+
+                // 1순위
+                document.getElementById('stat-p1-count').textContent = data.stats['1순위'].count.toLocaleString();
+                document.getElementById('stat-p1-detail').textContent = `평균 위험점수 ${data.stats['1순위'].avgRisk}`;
+
+                // 2순위
+                document.getElementById('stat-p2-count').textContent = data.stats['2순위'].count.toLocaleString();
+                document.getElementById('stat-p2-detail').textContent = `평균 위험점수 ${data.stats['2순위'].avgRisk}`;
+
+                // 3순위
+                document.getElementById('stat-p3-count').textContent = data.stats['3순위'].count.toLocaleString();
+                document.getElementById('stat-p3-detail').textContent = `평균 위험점수 ${data.stats['3순위'].avgRisk}`;
+
+                // 과잉
+                document.getElementById('stat-surplus-count').textContent = data.stats['과잉'].count.toLocaleString();
+                document.getElementById('stat-surplus-detail').textContent = `평균 카메라 ${data.stats['과잉'].avgCameras}대`;
+
+                // 시도 필터 채우기
+                const select = document.getElementById('sidoFilter');
+                data.sidoList.forEach(sido => {
+                    const opt = document.createElement('option');
+                    opt.value = sido;
+                    opt.textContent = sido;
+                    select.appendChild(opt);
+                });
+            } catch(e) {
+                console.error('Stats load error:', e);
+            }
+        }
+
+        // ── Load Markers ─────────────────────────────────
+        async function loadMarkers() {
+            showLoading(true);
+            try {
+                const cats = Array.from(activeCategories).join(',');
+                const sido = currentSido;
+                let url = `/api/markers?category=${encodeURIComponent(cats)}&limit=5000`;
+                if (sido !== '전체') url += `&sido=${encodeURIComponent(sido)}`;
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                clearMarkers();
+                renderMarkers(data.markers);
+                document.getElementById('markerCountNum').textContent = data.total.toLocaleString();
+            } catch(e) {
+                console.error('Marker load error:', e);
+            }
+            showLoading(false);
+        }
+
+        // ── Render Markers ───────────────────────────────
+        function renderMarkers(markerData) {
+            // 카테고리별로 마커 분류
+            const markersByCategory = {};
+            for (const cat of Object.keys(CATEGORY_CONFIG)) {
+                markersByCategory[cat] = [];
+            }
+
+            markerData.forEach(item => {
+                const cfg = CATEGORY_CONFIG[item.category];
+                if (!cfg) return;
+
+                const position = new kakao.maps.LatLng(item.lat, item.lng);
+
+                // 커스텀 마커 이미지 생성 (SVG circle)
+                const markerSize = item.category === '1순위' ? 14 : 10;
+                const svgContent = createMarkerSVG(cfg.color, markerSize);
+                const markerImage = new kakao.maps.MarkerImage(
+                    svgContent,
+                    new kakao.maps.Size(markerSize * 2, markerSize * 2),
+                    { offset: new kakao.maps.Point(markerSize, markerSize) }
+                );
+
+                const marker = new kakao.maps.Marker({
+                    position: position,
+                    image: markerImage,
+                    zIndex: cfg.zIndex,
+                });
+
+                // 클릭 이벤트
+                kakao.maps.event.addListener(marker, 'click', function() {
+                    showMarkerInfo(item);
+                    showInfoWindow(marker, item);
+                });
+
+                markers.push(marker);
+                markersByCategory[item.category].push(marker);
+            });
+
+            // 클러스터러에 마커 추가
+            for (const [cat, catMarkers] of Object.entries(markersByCategory)) {
+                if (catMarkers.length > 0 && activeCategories.has(cat)) {
+                    clusterers[cat].clear();
+                    clusterers[cat].addMarkers(catMarkers);
+                    clusterers[cat].setMap(map);
+                }
+            }
+        }
+
+        // ── Create Marker SVG ────────────────────────────
+        function createMarkerSVG(color, radius) {
+            const size = radius * 2;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+                <circle cx="${radius}" cy="${radius}" r="${radius - 1}" fill="${color}" fill-opacity="0.85" stroke="white" stroke-width="1.5"/>
+                <circle cx="${radius}" cy="${radius}" r="${Math.max(radius - 4, 2)}" fill="white" fill-opacity="0.3"/>
+            </svg>`;
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        }
+
+        // ── Show InfoWindow ──────────────────────────────
+        function showInfoWindow(marker, data) {
+            if (currentInfoWindow) currentInfoWindow.close();
+
+            const cfg = CATEGORY_CONFIG[data.category];
+            const badgeClass = data.category === '1순위' ? 'badge-1' :
+                               data.category === '2순위' ? 'badge-2' :
+                               data.category === '3순위' ? 'badge-3' : 'badge-surplus';
+
+            const content = `
+                <div class="custom-infowindow">
+                    <div class="iw-badge ${badgeClass}">${cfg.emoji} ${data.priority}</div>
+                    <div class="iw-title">${truncate(data.name, 40)}</div>
+                    <div class="iw-stats">
+                        <div class="iw-stat">
+                            <div class="iw-stat-label">사고건수</div>
+                            <div class="iw-stat-value" style="color:${data.accidents > 20 ? '#ff4757' : '#e8eaed'}">${data.accidents}</div>
+                        </div>
+                        <div class="iw-stat">
+                            <div class="iw-stat-label">사망자</div>
+                            <div class="iw-stat-value" style="color:${data.deaths > 0 ? '#ff4757' : '#e8eaed'}">${data.deaths}</div>
+                        </div>
+                        <div class="iw-stat">
+                            <div class="iw-stat-label">카메라</div>
+                            <div class="iw-stat-value" style="color:#3498db">${data.cameras}대</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const infoWindow = new kakao.maps.InfoWindow({
+                content: content,
+                removable: true,
+            });
+            infoWindow.open(map, marker);
+            currentInfoWindow = infoWindow;
+        }
+
+        // ── Show Marker Detail in Sidebar ────────────────
+        function showMarkerInfo(data) {
+            const cfg = CATEGORY_CONFIG[data.category];
+            const badgeClass = data.category === '1순위' ? 'badge-1' :
+                               data.category === '2순위' ? 'badge-2' :
+                               data.category === '3순위' ? 'badge-3' : 'badge-surplus';
+
+            const html = `
+                <div class="marker-detail">
+                    <div class="marker-detail-header">
+                        <span class="marker-detail-badge ${badgeClass}">${cfg.emoji} ${data.category}</span>
+                        <span class="marker-detail-name">${data.name || '이름 없음'}</span>
+                    </div>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">총 사고건수</div>
+                            <div class="detail-item-value danger">${data.accidents}건</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">사망자수</div>
+                            <div class="detail-item-value ${data.deaths > 0 ? 'danger' : 'neutral'}">${data.deaths}명</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">중상자수</div>
+                            <div class="detail-item-value warning">${data.serious}명</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">위험점수</div>
+                            <div class="detail-item-value danger">${data.riskScore}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">반경100m 카메라</div>
+                            <div class="detail-item-value info">${data.cameras}대</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">시도</div>
+                            <div class="detail-item-value neutral">${data.sido}</div>
+                        </div>
+                    </div>
+                    ${data.accidentType ? `
+                    <div class="detail-type">
+                        <div class="detail-type-label">사고 유형</div>
+                        <div class="detail-type-value">${data.accidentType}</div>
+                    </div>` : ''}
+                </div>
+            `;
+            document.getElementById('markerInfo').innerHTML = html;
+        }
+
+        // ── Clear Markers ────────────────────────────────
+        function clearMarkers() {
+            for (const clusterer of Object.values(clusterers)) {
+                clusterer.clear();
+                clusterer.setMap(null);
+            }
+            markers = [];
+        }
+
+        // ── Toggle Category ──────────────────────────────
+        function toggleCategory(el) {
+            const cat = el.dataset.category;
+            if (activeCategories.has(cat)) {
+                activeCategories.delete(cat);
+                el.classList.remove('active');
+            } else {
+                activeCategories.add(cat);
+                el.classList.add('active');
+            }
+            loadMarkers();
+        }
+
+        // ── Filter Change ────────────────────────────────
+        function onFilterChange() {
+            currentSido = document.getElementById('sidoFilter').value;
+            loadMarkers();
+        }
+
+        // ── Reset View ───────────────────────────────────
+        function resetView() {
+            map.setCenter(new kakao.maps.LatLng(36.5, 127.8));
+            map.setLevel(13);
+        }
+
+        // ── Refresh Markers ──────────────────────────────
+        function refreshMarkers() {
+            loadMarkers();
+        }
+
+        // ── Show/Hide Loading ────────────────────────────
+        function showLoading(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (show) {
+                overlay.classList.remove('hidden');
+            } else {
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // ── Utility ──────────────────────────────────────
+        function truncate(str, len) {
+            if (!str) return '';
+            return str.length > len ? str.substring(0, len) + '...' : str;
+        }
+
+        // ── Init ─────────────────────────────────────────
+        (function() {
+            var script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=783cd1afc84183a91bb96b541525f745&libraries=clusterer&autoload=false';
+            script.onload = function() {
+                kakao.maps.load(initMap);
+            };
+            script.onerror = function() {
+                document.getElementById('loadingOverlay').innerHTML = '<div style="color:#ff4757;font-size:16px;text-align:center;">⚠️ 카카오 맵 SDK 로드 실패<br><br><span style="font-size:13px;color:#9aa0b4;">카카오 개발자 콘솔에서<br>http://localhost:8000 도메인을 등록해주세요</span></div>';
+            };
+            document.head.appendChild(script);
+        })();
+    </script>
+</body>
+</html>
