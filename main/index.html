@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -646,7 +646,7 @@
 
             <!-- Map Controls -->
             <div class="map-controls">
-                <button class="map-btn" onclick="resetView()" title="전국 보기">🇰🇷</button>
+                <button class="map-btn" onclick="resetView()" title="전국 보기">⛶</button>
                 <button class="map-btn" onclick="refreshMarkers()" title="새로고침">🔄</button>
             </div>
 
@@ -804,6 +804,12 @@
 
         // ── Load Markers ─────────────────────────────────
         async function loadMarkers() {
+            // 선택된 카테고리가 없으면 마커 제거 후 0 표시
+            if (activeCategories.size === 0) {
+                clearMarkers();
+                document.getElementById('markerCountNum').textContent = '0';
+                return;
+            }
             showLoading(true);
             try {
                 const cats = Array.from(activeCategories).join(',');
