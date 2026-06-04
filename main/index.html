@@ -808,7 +808,7 @@
             try {
                 const cats = Array.from(activeCategories).join(',');
                 const sido = currentSido;
-                let url = `/api/markers?category=${encodeURIComponent(cats)}&limit=5000`;
+                let url = `/api/markers?category=${encodeURIComponent(cats)}&limit=15000`;
                 if (sido !== '전체') url += `&sido=${encodeURIComponent(sido)}`;
 
                 const res = await fetch(url);
