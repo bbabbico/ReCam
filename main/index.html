@@ -665,6 +665,7 @@
         let currentInfoWindow = null;
         let activeCategories = new Set(['1순위', '2순위', '과잉', '재배치가능']);
         let currentSido = '전체';
+        let geocoder = null;
 
         // 카테고리별 색상 설정
         const CATEGORY_CONFIG = {
@@ -684,6 +685,10 @@
                 level: 13,  // 전국 수준
             };
             map = new kakao.maps.Map(container, options);
+            
+            if (kakao.maps.services && kakao.maps.services.Geocoder) {
+                geocoder = new kakao.maps.services.Geocoder();
+            }
 
             // 지도 타입 컨트롤
             const mapTypeControl = new kakao.maps.MapTypeControl();
@@ -903,7 +908,7 @@
             const content = `
                 <div class="custom-infowindow">
                     <div class="iw-badge ${badgeClass}">${cfg.emoji} ${data.priority}</div>
-                    <div class="iw-title">${truncate(data.name, 40)}</div>
+                    <div class="iw-title" id="iw-title-text">주소 변환 중...</div>
                     <div class="iw-stats">
                         <div class="iw-stat">
                             <div class="iw-stat-label">사고건수</div>
@@ -927,6 +932,26 @@
             });
             infoWindow.open(map, marker);
             currentInfoWindow = infoWindow;
+            
+            if (geocoder) {
+                geocoder.coord2Address(data.lng, data.lat, function(result, status) {
+                    if (status === kakao.maps.services.Status.OK) {
+                        const addr = result[0].road_address ? result[0].road_address.address_name : result[0].address.address_name;
+                        const titleEl = document.getElementById('iw-title-text');
+                        if (titleEl) titleEl.innerText = addr;
+                        
+                        const sidebarNameEl = document.getElementById('sidebar-marker-name');
+                        if (sidebarNameEl && sidebarNameEl.dataset.lat == data.lat && sidebarNameEl.dataset.lng == data.lng) {
+                            sidebarNameEl.innerText = addr;
+                        }
+                    } else {
+                        const titleEl = document.getElementById('iw-title-text');
+                        if (titleEl) titleEl.innerText = truncate(data.name, 40);
+                    }
+                });
+            } else {
+                document.getElementById('iw-title-text').innerText = truncate(data.name, 40);
+            }
         }
 
         // ── Show Marker Detail in Sidebar ────────────────
@@ -943,7 +968,7 @@
                 <div class="marker-detail">
                     <div class="marker-detail-header">
                         <span class="marker-detail-badge ${badgeClass}">${cfg.emoji} ${data.category}</span>
-                        <span class="marker-detail-name">${data.name || '이름 없음'}</span>
+                        <span class="marker-detail-name" id="sidebar-marker-name" data-lat="${data.lat}" data-lng="${data.lng}">주소 변환 중...</span>
                     </div>
                     <div class="detail-grid">
                         <div class="detail-item">
@@ -1040,7 +1065,7 @@
         (function() {
             var script = document.createElement('script');
             script.type = 'text/javascript';
-            script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=783cd1afc84183a91bb96b541525f745&libraries=clusterer&autoload=false';
+            script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=783cd1afc84183a91bb96b541525f745&libraries=clusterer,services&autoload=false';
             script.onload = function() {
                 kakao.maps.load(initMap);
             };
