@@ -280,10 +280,10 @@ cluster_stats = df.groupby('cluster').agg(
 ).reset_index()
 
 label_order = [
-    '카메라 밀집 구역 (카메라多 사고少)',
-    '사망위험 (사망사고 집중)',
-    '부족 (카메라少)',
-    '사고다발 (사고多+중상多)'
+    '카메라 설치지점',
+    '사망위험',
+    '부족',
+    '사고다발'
 ]
 
 death_idx = cluster_stats['평균사망자수'].idxmax()
@@ -382,6 +382,70 @@ plt.tight_layout(rect=[0, 0, 1, 0.95])
 plt.savefig(os.path.join(OUTPUT_DIR, '03_군집화결과.png'), dpi=150, bbox_inches='tight')
 plt.close()
 print("  → 03_군집화결과.png 저장")
+
+# ── 1차 군집화 PCA 산점도 추가 (센트로이드 포함) ─────────────────────────────────────────
+print("  -> 12_PCA_1차산점도.png 생성 중...")
+from sklearn.decomposition import PCA
+features_1 = ['반경내카메라수', '총사고건수', '총사망자수', '총중상자수']
+df_log = np.log1p(df[features_1])
+scaler_pca = StandardScaler()
+X_scaled_pca = scaler_pca.fit_transform(df_log)
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_scaled_pca)
+
+np.random.seed(42)
+jitter_strength = 0.15
+pca_df = pd.DataFrame({
+    'PCA1_jitter': X_pca[:, 0] + np.random.normal(0, jitter_strength, size=len(X_pca)),
+    'PCA2_jitter': X_pca[:, 1] + np.random.normal(0, jitter_strength, size=len(X_pca)),
+    'PCA1_real': X_pca[:, 0],
+    'PCA2_real': X_pca[:, 1],
+    '군집라벨': df['군집라벨']
+})
+
+plt.figure(figsize=(12, 9))
+sns.scatterplot(
+    x='PCA1_jitter', y='PCA2_jitter', hue='군집라벨', data=pca_df,
+    palette=['#e74c3c', '#e67e22', '#2ecc71', '#3498db'], alpha=0.4, s=40, edgecolor=None
+)
+
+centroids_pca = pca_df.groupby('군집라벨')[['PCA1_real', 'PCA2_real']].mean().reset_index()
+for idx, row in centroids_pca.iterrows():
+    cluster_name = row['군집라벨']
+    plt.scatter(row['PCA1_real'], row['PCA2_real'], marker='*', s=800, c='gold', edgecolor='black', linewidth=1.5, zorder=10)
+    plt.text(row['PCA1_real'] + 0.1, row['PCA2_real'] + 0.1, f"Centroid\n{cluster_name.split('(')[0]}", 
+             fontsize=12, fontweight='bold', bbox=dict(facecolor='white', alpha=0.8, edgecolor='black', boxstyle='round,pad=0.3'), zorder=11)
+
+plt.title('1차 군집화 시각화', fontsize=18, fontweight='bold')
+plt.xlabel(f'Principal Component 1 ({pca.explained_variance_ratio_[0]*100:.1f}%)', fontsize=13)
+plt.ylabel(f'Principal Component 2 ({pca.explained_variance_ratio_[1]*100:.1f}%)', fontsize=13)
+plt.legend(title='데이터 포인트', bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=11)
+plt.grid(alpha=0.3)
+plt.tight_layout()
+plt.savefig(os.path.join(OUTPUT_DIR, '12_PCA_1차산점도.png'), dpi=200, bbox_inches='tight')
+plt.close()
+print("  -> 12_PCA_1차산점도.png 저장")
+
+# ── 1차 군집화 사고 지점 수 (포인트 수) 막대 그래프 추가 ─────────────────────────────────────────
+print("  -> 14_1차군집별_사고지점수.png 생성 중...")
+plt.figure(figsize=(10, 6))
+cluster_counts = df['군집라벨'].value_counts().reindex(label_order)
+ax = cluster_counts.plot(kind='bar', color=[cluster_colors.get(l, '#95a5a6') for l in cluster_counts.index], edgecolor='black', alpha=0.85)
+plt.title('1차 군집별 사고 지점 수 (N)', fontsize=16, fontweight='bold')
+plt.xlabel('군집 (Cluster)', fontsize=13)
+plt.ylabel('사고 지점 수 (개)', fontsize=13)
+plt.xticks(rotation=0, fontsize=11)
+for p in ax.patches:
+    ax.annotate(format(p.get_height(), '.0f'), 
+                (p.get_x() + p.get_width() / 2., p.get_height()), 
+                ha = 'center', va = 'center', 
+                xytext = (0, 9), 
+                textcoords = 'offset points', fontsize=12, fontweight='bold')
+plt.grid(axis='y', alpha=0.3)
+plt.tight_layout()
+plt.savefig(os.path.join(OUTPUT_DIR, '14_1차군집별_사고지점수.png'), dpi=150, bbox_inches='tight')
+plt.close()
+print("  -> 14_1차군집별_사고지점수.png 저장")
 
 
 # ╔═══════════════════════════════════════════════════════════════╗
@@ -747,6 +811,42 @@ plt.savefig(os.path.join(OUTPUT_DIR, '04_밀집구역_재군집화.png'), dpi=15
 plt.close()
 print("  -> 04_밀집구역_재군집화.png 저장")
 
+# ── 2차 군집화 산점도 추가 (Standardized + Jitter + 센트로이드) ─────────────────────────────────────────
+print("  -> 13_2차산점도_센트로이드.png 생성 중...")
+scaler_2nd = StandardScaler()
+scaled_features_2nd = scaler_2nd.fit_transform(excess_df[['카메라효과비율', '카메라효율']])
+excess_df_plot = excess_df.copy()
+excess_df_plot['효과비율_scaled'] = scaled_features_2nd[:, 0]
+excess_df_plot['효율_scaled'] = scaled_features_2nd[:, 1]
+
+np.random.seed(42)
+jitter_strength_2nd = 0.2
+excess_df_plot['효과비율_jitter'] = excess_df_plot['효과비율_scaled'] + np.random.normal(0, jitter_strength_2nd, size=len(excess_df_plot))
+excess_df_plot['효율_jitter'] = excess_df_plot['효율_scaled'] + np.random.normal(0, jitter_strength_2nd, size=len(excess_df_plot))
+
+plt.figure(figsize=(12, 9))
+sns.scatterplot(
+    x='효과비율_jitter', y='효율_jitter', hue='과잉세분화', data=excess_df_plot,
+    palette=['#c0392b', '#e67e22', '#27ae60'], alpha=0.6, s=70, edgecolor=None
+)
+
+centroids_2nd = excess_df_plot.groupby('과잉세분화')[['효과비율_scaled', '효율_scaled']].mean().reset_index()
+for idx, row in centroids_2nd.iterrows():
+    cluster_name = row['과잉세분화']
+    plt.scatter(row['효과비율_scaled'], row['효율_scaled'], marker='*', s=1000, c='gold', edgecolor='black', linewidth=1.5, zorder=10)
+    plt.text(row['효과비율_scaled'] + 0.1, row['효율_scaled'] + 0.1, f"Centroid\n{cluster_name.split('(')[0]}", 
+             fontsize=12, fontweight='bold', bbox=dict(facecolor='white', alpha=0.8, edgecolor='black', boxstyle='round,pad=0.3'), zorder=11)
+
+plt.title('2차 군집화 시각화', fontsize=18, fontweight='bold')
+plt.xlabel('카메라 효과 비율 (표준화 지수)', fontsize=13)
+plt.ylabel('카메라 효율 (표준화 지수)', fontsize=13)
+plt.legend(title='2차 군집 라벨', bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=11)
+plt.grid(alpha=0.3)
+plt.tight_layout()
+plt.savefig(os.path.join(OUTPUT_DIR, '13_2차산점도_센트로이드.png'), dpi=200, bbox_inches='tight')
+plt.close()
+print("  -> 13_2차산점도_센트로이드.png 저장")
+
 # excess 상세 CSV 저장
 excess_export = excess_df[['시도명', '사고위험지역명', '반경내카메라수',
                             '총사고건수', '총사망자수', '총중상자수',
@@ -769,7 +869,12 @@ df_out = df[['연도코드', '시도명', '시군구코드', '사고위험지역
              '총사고건수', '총사망자수', '총중상자수', '총경상자수',
              '사고분석유형명', '반경내카메라수', '반경내과속카메라', '반경내신호카메라',
              '카메라효과비율', 'cluster', '군집라벨', '과잉세분화', '위도', '경도']].copy()
+
+df_out = df.drop(columns=['연도코드', '시군구코드', '사고위험지역id', 'cluster', '반경내과속카메라', '반경내신호카메라', '총경상자수'], errors='ignore')
+if '카메라효과비율' in df_out.columns:
+    df_out = df_out.drop(columns=['카메라효과비율'])
 df_out.to_csv(os.path.join(OUTPUT_DIR, '결과_전체군집화데이터.csv'),
+
               index=False, encoding='utf-8-sig')
 print(f"  → 결과_전체군집화데이터.csv ({len(df_out):,}건)")
 
@@ -777,9 +882,6 @@ no_cam_top = no_cam.nlargest(30, '위험점수')[
     ['연도코드', '시도명', '사고위험지역명', '총사고건수',
      '총사망자수', '총중상자수', '위험점수', '사고분석유형명']
 ]
-no_cam_top.to_csv(os.path.join(OUTPUT_DIR, '결과_미설치_고위험Top30.csv'),
-                  index=False, encoding='utf-8-sig')
-print(f"  → 결과_미설치_고위험Top30.csv")
 
 summary_df = df.groupby('군집라벨').agg(
     지점수=('총사고건수', 'count'),
@@ -790,7 +892,16 @@ summary_df = df.groupby('군집라벨').agg(
     카메라단속관련비율=('카메라효과비율', 'mean'),
     카메라없는비율=('카메라유무', lambda x: f"{(1-x.mean())*100:.1f}%")
 ).reset_index()
-summary_df.to_csv(os.path.join(OUTPUT_DIR, '결과_군집화요약통계.csv'),
+
+# Add extra columns to summary_df
+try:
+    summary_df['평균위험점수'] = [df[df['군집라벨'] == label]['위험점수'].mean() for label in label_order]
+except:
+    pass
+cols_to_keep = ['군집라벨', '지점수', '평균카메라수', '평균사고건수', '평균사망자수', '평균중상자수', '평균위험점수']
+summary_df_export = summary_df[[c for c in cols_to_keep if c in summary_df.columns]]
+summary_df_export.to_csv(os.path.join(OUTPUT_DIR, '결과_군집화요약통계.csv'),
+
                   index=False, encoding='utf-8-sig')
 print(f"  → 결과_군집화요약통계.csv")
 
@@ -805,10 +916,6 @@ for label in label_order:
             '비율(%)': round(c / total * 100, 1),
             '카메라단속': '직접' if t in 단속가능 else ('간접' if t in 간접억제 else '불가')
         })
-pd.DataFrame(type_summary).to_csv(
-    os.path.join(OUTPUT_DIR, '결과_군집별사고유형.csv'),
-    index=False, encoding='utf-8-sig')
-print(f"  → 결과_군집별사고유형.csv")
 
 
 # ╔═══════════════════════════════════════════════════════════════╗
@@ -845,7 +952,7 @@ for t in 주요유형:
 
 # 군집별 × 카메라 유무별 평균 사고건수
 print(f"\n  군집별 × 카메라 유무별 평균 사고건수:")
-label_order_short = ['카메라 밀집 구역', '사망위험', '부족', '사고다발']
+label_order_short = ['카메라 설치지점', '사망위험', '부족', '사고다발']
 for lbl_short, lbl_full in zip(label_order_short, label_order):
     subset = df[df['군집라벨'] == lbl_full]
     yes = subset[subset['카메라유무'] == 1]
@@ -1035,9 +1142,6 @@ target_export = target_p6.nlargest(50, '위험점수')[
     ['시도명', '사고위험지역명', '총사고건수', '총사망자수', '총중상자수',
      '위험점수', '사고분석유형명', '군집라벨', '권장카메라유형']
 ]
-target_export.to_csv(os.path.join(OUTPUT_DIR, '결과_유형별설치권고Top50.csv'),
-                     index=False, encoding='utf-8-sig')
-print("  → 결과_유형별설치권고Top50.csv 저장")
 
 
 # ╔═══════════════════════════════════════════════════════════════╗
@@ -1211,9 +1315,6 @@ plt.close()
 print("  → 09_군집별_심각도.png 저장")
 
 severity_out = severity.reset_index()
-severity_out.to_csv(os.path.join(OUTPUT_DIR, '결과_군집별심각도.csv'),
-                    index=False, encoding='utf-8-sig')
-print("  → 결과_군집별심각도.csv 저장")
 
 
 # ╔═══════════════════════════════════════════════════════════════╗
@@ -1411,9 +1512,9 @@ for png in ['01_EDA_기초현황', '02_EDA_상관관계', '03_군집화결과',
     print(f"    · {png}.png")
 
 print(f"\n  📄 생성된 데이터 (7종):")
-for csv_name in ['결과_전체군집화데이터', '결과_군집화요약통계', '결과_미설치_고위험Top30',
-                  '결과_군집별사고유형', '결과_밀집구역_세분화데이터',
-                  '결과_유형별설치권고Top50', '결과_군집별심각도',
+for csv_name in ['결과_전체군집화데이터', '결과_군집화요약통계', '',
+                  '', '결과_밀집구역_세분화데이터',
+                  '', '',
                   '결과_최종재배치대상']:
     print(f"    · {csv_name}.csv")
 
