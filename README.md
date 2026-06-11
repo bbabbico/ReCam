@@ -2,6 +2,7 @@
 
 
 ### 시각화 지도 실행
+`pip install -r requirements.txt` 의존성 설치후 <br>
 루트 디렉터리에서 `main/main.py` 실행
 
 ### 컨벤션 및 그라운드 룰
