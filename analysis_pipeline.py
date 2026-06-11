@@ -14,14 +14,6 @@
   Phase 8  : 재배치 우선순위 도출
   Phase 9  : 우선순위별 예방 효과 시각화
 =============================================================================
-  통합 이전 파일 목록:
-    - camera_redistribution_v2.py  (Phase 1~5-B + CSV 저장)
-    - camera_effectiveness_proof.py (Phase 6)
-    - severity_analysis.py          (Phase 7)
-    - camera_prioritization.py      (Phase 8)
-    - visualize_proof.py            (Phase 9)
-    - check_clusters.py             (진단 유틸 -> 삭제)
-=============================================================================
 """
 
 import os, sys, warnings
