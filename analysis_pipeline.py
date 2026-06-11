@@ -20,7 +20,7 @@
     - severity_analysis.py          (Phase 7)
     - camera_prioritization.py      (Phase 8)
     - visualize_proof.py            (Phase 9)
-    - check_clusters.py             (진단 유틸 → 삭제)
+    - check_clusters.py             (진단 유틸 -> 삭제)
 =============================================================================
 """
 
