@@ -683,34 +683,47 @@ print(f"\n  >> 재배치 공급원: {n_supply:,}개소 ({SUB_LABELS[0].split('('
 print(f"  >> 확보 가능 잉여 카메라: {int(supply_cam):,}대")
 print(f"  >> 적정 (현행 유지): {n_proper:,}개소 ({n_proper/len(excess_df)*100:.1f}%)")
 
-# ── 실루엣 시각화 ─────────────────────────────────────────────
-fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-fig.suptitle('과잉 군집 내 재군집화 검증 (K-Means, k=3)', fontsize=17, fontweight='bold')
+# ── 실루엣 및 엘보우 시각화 ─────────────────────────────────────────────
+fig, axes = plt.subplots(1, 2, figsize=(18, 6))
+fig.suptitle('과잉 군집 내 재군집화 검증 (K-Means, k=3)', fontsize=18, fontweight='bold', y=1.05)
 
-ax = axes[0]
-ax.plot(list(ex_k_range), ex_sil_scores, 'bo-', linewidth=2, markersize=9)
-ax.axvline(x=ADOPTED_K, color='red', linestyle='--', linewidth=2, label=f'채택 k={ADOPTED_K} (Sil={sil3:.4f})')
+# 1. 엘보우 메소드 & 실루엣 스코어 결합
+ax1 = axes[0]
+color1 = 'tab:green'
+ax1.set_xlabel('k (군집 수)', fontsize=13)
+ax1.set_ylabel('Inertia (Sum of Squared Distances)', color=color1, fontsize=13)
+ax1.plot(list(ex_k_range), ex_inertias, 's-', color=color1, linewidth=2.5, markersize=8, label='Inertia (Elbow)')
+ax1.tick_params(axis='y', labelcolor=color1)
+ax1.grid(alpha=0.3)
+
+ax2 = ax1.twinx()
+color2 = 'tab:blue'
+ax2.set_ylabel('Silhouette Score', color=color2, fontsize=13)
+ax2.plot(list(ex_k_range), ex_sil_scores, 'o-', color=color2, linewidth=2.5, markersize=9, label='Silhouette Score')
+ax2.tick_params(axis='y', labelcolor=color2)
+
+ax2.axvline(x=ADOPTED_K, color='red', linestyle='--', linewidth=2, label=f'채택 k={ADOPTED_K} (Sil={sil3:.4f})')
 for k_val, sil_val in zip(ex_k_range, ex_sil_scores):
-    ax.annotate(f'{sil_val:.4f}', (k_val, sil_val), textcoords='offset points',
-                xytext=(0, 10), ha='center', fontsize=10, fontweight='bold')
-ax.axhline(y=0.5, color='orange', linestyle=':', linewidth=1.5, label='양호 기준 (0.5)')
-ax.set_title('Silhouette Score by k\n(과잉 군집 내 재군집화)', fontsize=13, fontweight='bold')
-ax.set_xlabel('k (군집 수)')
-ax.set_ylabel('Silhouette Score')
-ax.legend(fontsize=11)
-ax.grid(alpha=0.3)
+    ax2.annotate(f'{sil_val:.4f}', (k_val, sil_val), textcoords='offset points',
+                 xytext=(0, 10), ha='center', fontsize=11, fontweight='bold', color=color2)
 
+lines_1, labels_1 = ax1.get_legend_handles_labels()
+lines_2, labels_2 = ax2.get_legend_handles_labels()
+ax2.legend(lines_1 + lines_2, labels_1 + labels_2, loc='center right', fontsize=11)
+ax1.set_title('Elbow Method & Silhouette Score\n(과잉 군집 내 재군집화 검증)', fontsize=15, fontweight='bold')
+
+# 2. 재군집화 결과 산점도
 ax = axes[1]
 sub_colors = {SUB_LABELS[0]: '#c0392b', SUB_LABELS[1]: '#e67e22', SUB_LABELS[2]: '#27ae60'}
 for lbl, color in sub_colors.items():
     sub = excess_df[excess_df['과잉세분화'] == lbl]
     ax.scatter(sub['카메라효율'], sub['카메라효과비율'],
-               s=25, c=color, alpha=0.5,
+               s=35, c=color, alpha=0.6, edgecolor='white', linewidth=0.5,
                label=f"{lbl} ({len(sub):,})")
-ax.set_title(f'재군집화 결과 산점도 (k=3, Silhouette={sil3:.4f})', fontsize=13, fontweight='bold')
-ax.set_xlabel('카메라 효율 (위험점수 / 카메라수)')
-ax.set_ylabel('카메라 효과비율 (%)')
-ax.legend(fontsize=10)
+ax.set_title(f'재군집화 결과 산점도\n(k=3, Silhouette={sil3:.4f})', fontsize=15, fontweight='bold')
+ax.set_xlabel('카메라 효율 (위험점수 / 카메라수)', fontsize=13)
+ax.set_ylabel('카메라 효과비율 (%)', fontsize=13)
+ax.legend(fontsize=11)
 ax.grid(alpha=0.3)
 
 plt.tight_layout()
